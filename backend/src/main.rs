@@ -7,6 +7,7 @@ use actix_cors::Cors;
 
 use database::*;
 pub mod database;
+pub mod tokenservice;
 
 
 #[derive(Debug, PartialEq, Eq)]
