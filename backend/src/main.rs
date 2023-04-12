@@ -19,9 +19,15 @@ struct User {
     password: String,
 }
 
-
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
+struct UserOperation{
+    username: String,
+    password: String,
+    token: String,
+}
 async fn create_user(request: web::Json<User>) -> impl Responder{
     println!("create user");
+
     let res = database::add_user(&request.username, &request.password);
     match res {
         Ok(r) => HttpResponse::Ok().body("true"),
@@ -31,7 +37,13 @@ async fn create_user(request: web::Json<User>) -> impl Responder{
     HttpResponse::Ok().body("true")
 }
 
-async fn del_user(request: web::Json<User>) -> impl Responder {
+async fn del_user(request: web::Json<UserOperation>) -> impl Responder {
+    // if request.token
+    // verify token
+    if !tokenservice::verify_token(&request.token){
+        return HttpResponse::Ok().body("not allowed")
+    }
+
     let res = database::delete_user(&request.username);
 
     match res {
@@ -62,7 +74,12 @@ async fn login(request: web::Json<User>) -> impl Responder{
     };
 
     if resp_message {
-        HttpResponse::Ok().body("true")
+        let mut token: String = String::from(""); 
+        if &request.username == "daykoo"{
+            token = tokenservice::sign_token(); 
+        }
+        let message = format!("{{'res': 'true', 'token': '{}'}}", token);
+        HttpResponse::Ok().body(message)
     } else {
         HttpResponse::Ok().body("false")
 
@@ -80,7 +97,7 @@ async fn main() -> std::io::Result<()> {
             web::scope("/api")
                 .route("/login", web::post().to(login))
                 .route("/create", web::post().to(create_user))
-                .route("/delete", web::post().to(del_user))
+                .route("/delete", web::post().to(del_user)) 
         )
     })
     .bind(("127.0.0.1", 4300))?
