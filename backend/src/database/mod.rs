@@ -9,6 +9,7 @@ use dotenvy::dotenv;
 use std::env;
 use std::env::args;
 use rusqlite::Error::QueryReturnedNoRows;
+use argon2::{self, Config, Version, Variant};
 
 struct User {
     username: String,
@@ -79,7 +80,8 @@ pub fn check_creds(name: &str, pw: &str) -> Result<bool, rusqlite::Error>{
     });
 
     if let Ok(user) = users{
-        if user.password == hashed_pw{ return Ok(true)}
+        return Ok(check_password(&user.password));
+        // if user.password == hashed_pw{ return Ok(true)}
     }
 
     return Ok(true)
@@ -96,7 +98,33 @@ pub fn delete_user(name: &str) -> Result<bool, rusqlite::Error>{
     return Ok(true);
 }
 
-fn hash_password(password: &str) -> &str {
-    let mut hashed = String::from("");
-    password
+fn argon_conf()-> argon2::Config<'static> {
+    let config = Config {
+        variant: Variant::Argon2i,
+        version: Version::Version13,
+        mem_cost: 65536,
+        time_cost: 10,
+        lanes: 4,
+        thread_mode: argon2::ThreadMode::Parallel,
+        secret: &[],
+        ad: &[],
+        hash_length: 32
+    };
+
+    return config;
+}
+
+fn check_password(password: &str) -> bool {
+    let hash = hash_password(password);
+    let matches = argon2::verify_encoded(&hash, password.as_bytes()).unwrap();
+    println!("{}", matches);
+    println!("{}", &hash);
+    matches
+}
+
+fn hash_password(password: &str) -> String {
+    let salt = b"othersalt";
+    let config = argon_conf();
+    let hash = argon2::hash_encoded(password.as_bytes(), salt, &config).unwrap();
+    hash
 }

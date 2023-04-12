@@ -1,5 +1,5 @@
 //! Webserver
-
+extern crate argon2;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use serde::{Serialize, Deserialize};
 use actix_cors::Cors;
