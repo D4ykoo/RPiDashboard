@@ -11,9 +11,15 @@ use std::env::args;
 use rusqlite::Error::QueryReturnedNoRows;
 use argon2::{self, Config, Version, Variant};
 
+#[derive(Debug)]
 struct User {
     username: String,
     password: String
+}
+
+#[derive(Debug)]
+struct ExistUser{
+    username: String,
 }
 
 pub fn create_db_tables() -> Result<()>{
@@ -38,41 +44,55 @@ pub fn create_db_tables() -> Result<()>{
     Ok(())
 }
 
-fn connect() -> Result<Connection, rusqlite::Error>{
+pub fn connect() -> Result<Connection, rusqlite::Error>{
     return Connection::open("dashboard.db");
 }
 
 
 fn exists(name: &str, conn: &Connection) -> Result<bool>{
-    let mut stmt = conn.prepare("SELECT * FROM users WHERE username = ?1")?;
-    stmt.execute([name.to_string()])?;
+    let mut stmt = conn.prepare("SELECT username FROM users WHERE username = ?1")?;
 
-    return Ok(true)
+    let users = stmt.query_row([name.to_string()], |row| {
+        Ok(ExistUser{
+            username: row.get(1)?
+        }
+        )
+    });
+
+    if users.is_ok(){
+        return Ok(true)
+    } else {
+        return Ok(false)
+    }
 }
 
 pub fn add_user(name: &str, pw: &str) -> Result<bool, rusqlite::Error>{
     let conn = connect().unwrap();
-    
-    if !exists(name, &conn).unwrap() {return Err(QueryReturnedNoRows)};
+    let res = exists(name, &conn).unwrap();
+
+    if res {
+        println!("user already exists");
+        return Err(rusqlite::Error::ExecuteReturnedResults)
+    };
 
     let hashed_pw = hash_password(pw);
 
     let mut stmt = conn.prepare("INSERT INTO users (username, password) values (?1, ?2)",)?;
     stmt.execute([name.to_string(), hashed_pw.to_string()])?;
-
+    println!("user created");
     return Ok(true)
 
 }
 
 pub fn check_creds(name: &str, pw: &str) -> Result<bool, rusqlite::Error>{
     let conn = connect().unwrap();
-    let hashed_pw = hash_password(pw);
 
-    if !exists(name, &conn).unwrap() {return Err(QueryReturnedNoRows)};
+    if exists(name, &conn).unwrap() {return Ok(false)};
+
     let mut stmt = conn.prepare("SELECT * FROM users WHERE username = ?1")?;
-    stmt.execute([name.to_string()])?;
+    // stmt.execute([name.to_string()])?;
 
-    let users = stmt.query_row((), |row| {
+    let users = stmt.query_row([name.to_string()], |row| {
         Ok(User {
             username: row.get(1)?,
             password: row.get(2)?,
@@ -80,11 +100,11 @@ pub fn check_creds(name: &str, pw: &str) -> Result<bool, rusqlite::Error>{
     });
 
     if let Ok(user) = users{
-        return Ok(check_password(&user.password));
-        // if user.password == hashed_pw{ return Ok(true)}
+        return Ok(check_password(&user.password, pw));
+    } else {
+        println!("{}", ("shitty"));
+        return Ok(false)
     }
-
-    return Ok(true)
 }
 
 pub fn delete_user(name: &str) -> Result<bool, rusqlite::Error>{
@@ -114,12 +134,10 @@ fn argon_conf()-> argon2::Config<'static> {
     return config;
 }
 
-fn check_password(password: &str) -> bool {
-    let hash = hash_password(password);
-    let matches = argon2::verify_encoded(&hash, password.as_bytes()).unwrap();
-    println!("{}", matches);
-    println!("{}", &hash);
-    matches
+fn check_password(password: &str, pw: &str) -> bool {
+    let hash = hash_password(pw);
+    if password.contains(&hash){return true};
+    return false;
 }
 
 fn hash_password(password: &str) -> String {
