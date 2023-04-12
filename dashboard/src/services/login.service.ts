@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders} from '@angular/common/http';
 import { Router } from '@angular/router';
 import { environment } from 'src/enviroments/enviroments';
+import { TokenstorageService } from './tokenstorage.service';
+import { BoardComponent } from 'src/app/board/board.component';
 
 @Injectable({
   providedIn: 'root'
@@ -9,30 +11,25 @@ import { environment } from 'src/enviroments/enviroments';
 export class LoginService {
   localUrl = environment.apiUrl;
   headers = new HttpHeaders().set('Content-Type', 'application/json');
-  constructor(private http: HttpClient, private router: Router,) { }
+  constructor(private http: HttpClient, private router: Router, private storageService: TokenstorageService) { }
 
 
-  
-  public async loginRequest(body: {username: string; password: string;}): Promise<boolean> {
-    console.log("login request")
-    return this.http.post<any>(this.localUrl + '/login', body).toPromise().then(response => {
-      console.log(response)
-      if (response){
-        this.router.navigate(['board/']);
+  public loginRequest(body: {username: string, password: string}) {
+    return this.http.post<any>(this.localUrl + '/login', body).
+    subscribe((res: any) => {
+      // TODO: Handle res data from server
+      if (!res.res){alert("can not login"); return;}
+      this.storageService.saveToken("auth-token", res.token)
 
-      } else {
-        console.log("no")
-        alert("not allowed")
-        return false;
-      }
-      return true;
-    }).catch(error => {
-      console.error(error);
-      return false;
+      this.router.navigate(['/board']);
     });
   }
 
   public canLogin(){
-    return false
+    let token = this.storageService.getToken("auth-token");
+    if (token !== null){
+      return true
+    }
+    return false;
   }
 }

@@ -26,7 +26,7 @@ pub fn create_db_tables() -> Result<()>{
     let conn = Connection::open("dashboard.db")?;
     conn.execute_batch(
         "create table if not exists users (
-             id integer primary key,
+             id integer primary key autoincrement,
              username text not null unique,
              password text not null
          )",
@@ -110,7 +110,7 @@ pub fn check_creds(name: &str, pw: &str) -> Result<bool, rusqlite::Error>{
 pub fn delete_user(name: &str) -> Result<bool, rusqlite::Error>{
     let conn = connect().unwrap();
     
-    if !exists(name, &conn).unwrap() {return Err(QueryReturnedNoRows)};
+    // if !exists(name, &conn).unwrap() {return Err(QueryReturnedNoRows)};
 
     let mut stmt = conn.prepare("DELETE FROM users WHERE username = ?1")?;
     stmt.execute([name.to_string()])?;

@@ -25,33 +25,55 @@ struct UserOperation{
     password: String,
     token: String,
 }
-async fn create_user(request: web::Json<User>) -> impl Responder{
+
+#[derive(Debug, Deserialize, Serialize)]
+struct JsonResponseLogin {
+    res: bool,
+    token: String
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct SimpleJsonResponse {
+    res: bool,
+}
+
+
+
+async fn create_user(request: web::Json<UserOperation>) -> impl Responder{
     println!("create user");
+
+    if !tokenservice::verify_token(&request.token){
+        // return HttpResponse::Ok().body("not allowed")
+        let res = SimpleJsonResponse {res: false};
+        return web::Json(res)
+    }
 
     let res = database::add_user(&request.username, &request.password);
     match res {
-        Ok(r) => HttpResponse::Ok().body("true"),
-        Err(_) => HttpResponse::BadRequest().body("false"),
+        Ok(r) => return web::Json(SimpleJsonResponse {res: true}),
+        Err(_) => return web::Json(SimpleJsonResponse {res: false}),
     };
     // database::create_user(&request.username, &request.email,&request.password);
-    HttpResponse::Ok().body("true")
+    // return web::Json(SimpleJsonResponse {res: true})
 }
 
 async fn del_user(request: web::Json<UserOperation>) -> impl Responder {
     // if request.token
     // verify token
+    println!("{:#?}",tokenservice::verify_token(&request.token));
     if !tokenservice::verify_token(&request.token){
-        return HttpResponse::Ok().body("not allowed")
+        println!("shit");
+        return web::Json(SimpleJsonResponse {res: false})
     }
+    println!("{:#?}",&request.username);
 
     let res = database::delete_user(&request.username);
 
     match res {
-        Ok(r) => HttpResponse::Ok().body("true"),
-        Err(_) => HttpResponse::BadRequest().body("false"),
-    };
+        Ok(r) => return web::Json(SimpleJsonResponse {res: true}),
 
-    HttpResponse::Ok().body("true")
+        Err(e) => {println!("{}", e); return web::Json(SimpleJsonResponse {res: false})}
+    };
 
 }
 
@@ -75,13 +97,13 @@ async fn login(request: web::Json<User>) -> impl Responder{
 
     if resp_message {
         let mut token: String = String::from(""); 
-        if &request.username == "daykoo"{
+        if &request.username == "Daykoo"{
             token = tokenservice::sign_token(); 
         }
-        let message = format!("{{'res': 'true', 'token': '{}'}}", token);
-        HttpResponse::Ok().body(message)
+        // let message = format!("{{'res': 'true', 'token': '{}'}}", token);
+        return web::Json(JsonResponseLogin {res: true, token: token})
     } else {
-        HttpResponse::Ok().body("false")
+        return web::Json(JsonResponseLogin {res: false, token: "".to_owned()})
 
     }
 }

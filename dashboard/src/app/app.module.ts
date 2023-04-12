@@ -6,12 +6,14 @@ import { AppComponent } from './app.component';
 import { LoginComponent } from './login/login.component';
 import { BoardComponent } from './board/board.component';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
+import { UsermanagementComponent } from './usermanagement/usermanagement.component';
 
 @NgModule({
   declarations: [
     AppComponent,
     LoginComponent,
-    BoardComponent
+    BoardComponent,
+    UsermanagementComponent
   ],
   imports: [
     BrowserModule,
